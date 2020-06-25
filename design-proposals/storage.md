@@ -10,6 +10,26 @@ We primarily need to configure storage for Cassandra's data directory and for th
 * Profiler
 * Sidecars
 
+## Data Directory
+By default Cassandra stores the following in the *data* directory:
+
+* `/var/lib/cassandra/commitlog`
+* `/var/lib/cassandra/data`
+* `/var/lib/cassandra/cdc_raw`
+* `/var/lib/cassandra/saved_caches`
+* `/var/lib/cassandra/hints`
+
+## Logs Directory
+By default Cassandra stores the following the *logs* directory:
+
+* `system.log`
+* `debug.log`
+* `gc.log`
+
+# Current State of the World
+This section briefly looks at how what is exposed with Cass Operator and with CassKop.
+
+## Cass Operator
 Cass Operator directly exposes a `PersistentVolumeClaimSpec` to configure a volume for Cassandra's data directory and commit log directory:
 
 ```yaml
@@ -29,6 +49,7 @@ spec:
           storage: 5Gi
 ```
 
+## CassKop
 CassKop on the other hand only exposes capacity and the storage class for configuring the volume that will store Cassandra's data directoty and commit log directory:
 
 ```yaml
@@ -95,3 +116,4 @@ spec:
           name: gc-logs
 
 ```
+
