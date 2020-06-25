@@ -2,6 +2,10 @@
 The purpose of this document is to identify and define data types that are needed for specifying a Cassandra cluster's topology.
 
 # Racks
+A `Rack` maps directly to a Cassandra rack. A Cassandra rack is a logical grouping of C* nodes that can be co-located within a zone. Cassandra designates replicas across racks. 
+
+A `Rack` object should minimally be expressive enough to pin C* pods to a specific zone.
+
 All four operator have a well-defined type for racks. A `Rack` object should provide the ability to do the following for the Cassandra nodes that constitute a rack:
 
 * Constrain C* pods to be scheduled to a specific zone
@@ -32,29 +36,24 @@ type Rack struct {
 }
 ```
 
-Some notable things missing from the `Rack` type include:
+## Questions
+### Where is Cassandra configuration?
 
-* Cassandra configuration, i.e., `cassandra.yaml`
-* Number of C* nodes
-* Configuration of the `PodTemplateSpec`
+The primary purpose of a `Rack` is to specify topology which includes where pods will be scheduled. Cassandra configured will be addressed elsewhere.
 
-**Cassandra configuration**
-
-The purpose of a `Rack` is help specify topology and where pods should be scheduled. Cassandra configuration will be addressed elsewhere in the CRD.
-
-**Number of nodes**
-
+### How come there is no property to specify the number of C* nodes?
 We want balanced racks. Instead of specifying nodes at the rack level, it should be a setting that applies across racks to help enforce balance.
 
-**Configuration of PodTemplateSpec**
+### Should other parts of the StatefulSet should be exposed at the rack level?
 
-Should any of this be exposed at the rack level?
+### Does there need to be a rack-level status?
 
-**Affinity**
-
-Should `Affinity` be exposed to give users more fine-grained control over node affinity, pod affinity, and pod anti-affinity in cases where only labels is not expressive enough?
 
 # Datacenter
+A `Datacenter` maps to a C* datacenter. A C* datacenter is a logical grouping of C* nodes that is configured for replication purposes.
+
+A `Datacenter` is comprised of `Racks` and settings that are shared among them.
+
 ```go
 type PodAntiAffintyType string
 
@@ -96,13 +95,20 @@ type Datacenter struct {
 	// Allows the pods to be scheduled onto nodes with matching taints. These will be
 	// merged with rack-level tolerations.
 	Tolerations []corev1.Toleration `json:"tolerations,omitempty"`
+	
+	// TODO add property for PodDisruptionBudget
 }
 ```
 
+## Questions
+### How is the snitch configured?
+The operator will automatically set the snitch to `GossipingPropertyFileSnitch`.
+
+### How are seeds configured?
+The operator will automatically configure seed nodes.
+
 # Cluster
 ```go
-type DatacenterRef corev1.ObjectReference
-
 type Cluster struct {
 	Name string `json:"name"`
 	
@@ -118,21 +124,77 @@ type Cluster struct {
 	// taints. These will be merged with datacenter-level tolerations.
 	Tolerations []corev1.Toleration `json:"tolerations,omitempty"`
 	
-	Datacenters []Datacenter `json:"datacenters,omitempty"`
-	
-	DatacenterRefs []DatacenterRef `json:"datacenterRefs,omitempty"`
+	Datacenters []Datacenter `json:"datacenters,omitempty
 }
 ```
 
-And here is example of how this might look in a YAML manifest:
+## Questions
+### Should Datacenter be its own resource type?
+
+
+## Examples
+### One DC and One Rack
+```yaml
+apiVersion: cassandra/v1alpha1
+kind: Cluster
+metadata:
+  name: one-dc-one-rack
+spec:
+  name: one-dc-one-rack
+  datacenters:
+    - name: dc1
+      nodesPerRack: 3
+```
+
+### One DC and Multiple Racks
+```yaml
+apiVersion: cassandra/v1alpha1
+kind: Cluster
+metadata:
+  name: one-dc-multiple-racks
+spec:
+  name: one-dc-multiple-racks
+  datacenters:
+    - name: dc1
+      nodesPerRack: 3
+      racks:
+        - name: rack1
+        - name: rack2
+        - name: rack3
+```
+
+### One DC and Multiple Racks with Zone-Awareness
+```yaml
+apiVersion: cassandra/v1alpha1
+kind: Cluster
+metadata:
+  name: one-dc-zone-aware-racks
+spec:
+  name: one-dc-zone-aware-racks
+  datacenters:
+    - name: dc1
+      nodesPerRack: 3
+      racks:
+        - name: rack1
+          labels:
+            topology.kubernetes.io/zone: us-east-1c
+        - name: rack2
+          labels:
+            topology.kubernetes.io/zone: us-east-1b
+        - name: rack3
+          labels:
+            topology.kubernetes.io/zone: us-east-1d
+```
+
+### Two DCs and Multiple Racks with Zone-Awareness
 
 ```yaml
 apiVersion: cassandra/v1alpha1
 kind: Cluster
 metadata:
-  name: demo
+  name: two-dcs-zone-aware-racks
 spec:
-  name: demo
+  name: two-dcs-zone-aware-racks
   datacenters:
     - name: dc1
       nodesPerRack: 3
@@ -158,14 +220,7 @@ spec:
         - name: rack3
           labels:
             topology.kubernetes.io/zone: us-west-1d                        
-  datacenterRefs:
-    - name: dc3
-    - name: dc4          
 ```
-
-A `Cluster` allows for datacenters to be defined inline or as references. As the example illustrates, a combination of the two can be used. 
-
-If the same datacenter appears in both `datacenters` and `datacenterRefs`, then it should result in a validation error.
 
 # Controllers
 There will be two controllers - one for `Datacenters` and one for `Clusters`. I will refer to them as `datacenter_controller` and `cluster_controller` respectively.
