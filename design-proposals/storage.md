@@ -117,3 +117,74 @@ spec:
 
 ```
 
+# Proposal
+```go
+type StorageDir struct {
+	Path string `json:"path"`
+	
+	VolumeSource corev1.VolumeSource `json:"volumeSource"`
+}
+
+typs StorageConfig struct {
+	// The data volume, i.e., /var/lib/cassandra
+	Data *corev1.PersistentVolumeClaimSpec `json:"data,omitempty"`
+	
+	// An optional separate volume for the commit log. Setting this would
+	// requiring changing the value of commitlog_directory in cassandra.yaml.
+	CommitLog *corev1.PersistentVolumeClaimSpec `json:"commitLog,omitempty"`
+	
+	SystemLog *StorageDir `json:"systemLog,omitempty"`
+	
+	DebugLog *StorageDir `json:"debugLog,omitempty"`
+	
+	GcLog *StorageDir `json:"gcLog,omitempty"`
+	
+	AdditionalVolumes []corev1.Volume `json:"additionalVolumes,omitempty"`
+}
+```
+
+For `/var/lib/data` we use a single volume by default and create a `subPath` volume mount for each subdirectory:
+
+```yaml
+  volumeMounts:
+  - mountPath: /var/lib/cassandra
+    name: data
+    subPath: data
+  - mountPath: /var/lib/cassandra
+    name: commitLog
+    subPath: commitlog
+  - mountPath: /var/log/cassandra
+    name: server-logs
+  - mountPath: /var/lib/cassandra
+    name: server-data
+# ...
+volumes:
+- name: server-data
+  persistentVolumeClaim:
+    claimName: server-data-mycluster-sts-0
+- emptyDir: {}
+  name: server-logs
+```
+
+If we want to put the commit log on a separate volume, then we set the `CommitLog` property which would result in something like this:
+
+```yaml
+  volumeMounts:
+  - mountPath: /var/lib/cassandra
+    name: data
+    subPath: data
+  - mountPath: /data/cassandra/commitlog
+    name: commitLog
+    subPath: commitlog
+  - mountPath: /var/log/cassandra
+    name: server-logs
+  - mountPath: /var/lib/cassandra
+    name: server-data
+# ...
+volumes:
+- name: server-data
+  persistentVolumeClaim:
+    claimName: server-data-mycluster-sts-0
+- emptyDir: {}
+  name: server-logs
+```
