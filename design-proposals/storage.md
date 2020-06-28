@@ -28,7 +28,7 @@ By default Cassandra has the following in `/var/lib/cassandra`:
 * `/var/lib/cassandra/hints`
 
 ## Logs
-By default Cassandrahas the following in `/var/log/cassandra`:
+By default Cassandra has the following in `/var/log/cassandra`:
 
 * `system.log`
 * `debug.log`
@@ -232,14 +232,18 @@ typs StorageConfig struct {
 	// The default log directory, i.e., /var/log/cassandra
 	CassandraLogDir *LogData `json:"cassandraLogDir,omitempty"`
 	
-	// An optional volume for the system.log files
+	// An optional volume for the system.log files. If this property
+	// is set, the operator should update logback.xml accordingly.
 	SystemLogDir *LogData `json:"systemLogDir,omitempty"`
 	
-	// An optional volume for the debug.log files
+	// An optional volume for the debug.log files. If this property
+	// is set, the operator should update logback.xml accordingly.
 	DebugLogDir *LogData `json:"debugLogDir,omitempty"`
 	
-	// An optional volume for the gc.log files
-	GcLog *StorageDir `json:"gcLog,omitempty"`
+	// An optional volume for heap dumps. If this property is set,
+	// then the operator should set -xx:HeapDumpPath in jvm.options
+	// accordingly.
+	HeapDumpDir *LogData `json:"heapDumpDir,omitempy"`
 	
 	AdditionalVolumes []corev1.Volume `json:"additionalVolumes,omitempty"`
 }
@@ -257,13 +261,13 @@ StorageConfig{
 	CdcRawDir: &PersistentData{
 		Name: "cdc_raw"
 		MountPath: "/cdc_raw"
-		Capacity: "10Gb"
+		Capacity: "10Gi"
 		StorageClass: fast-storage
 	}
 }
 ```
 
-In addition to creating the default PersistentData for `CassandraDataDir`, the operator will also create one for `CdcRawDir`. The operator will create a 10 Gb PersistentVolumeClaim with a mount point at `/cdc_raw`. The operator should also update the value of `cdc_raw_directory` in `cassandra.yaml`.
+In addition to creating the default PersistentData for `CassandraDataDir`, the operator will also create one for `CdcRawDir`. The operator will create a 10 Gi PersistentVolumeClaim with a mount point at `/cdc_raw`. The operator should also update the value of `cdc_raw_directory` in `cassandra.yaml`.
 
 ## LogData
 The operator will by default initialize `CassandraLogDir`. This will result in the creation of a Volume for `/var/log/cassandra` and a VolumeMount in the cassandra container. 
