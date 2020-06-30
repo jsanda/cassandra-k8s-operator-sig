@@ -198,6 +198,10 @@ type LogData struct {
 }
 
 typs StorageConfig struct {
+	// This storage class will be used for all PersistentData unless the
+	// PersistentData defines its own storage class. 
+	DefaultStorageClass string `json:"defaultStorageClass,omitempty"`
+
 	// The default data volume, i.e., /var/lib/cassandra.
 	CassandraDataDir *PersistentData `json:"cassandraDataDir,omitempty"`
 	
